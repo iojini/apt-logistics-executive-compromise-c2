@@ -1,4 +1,4 @@
-# Threat Hunt Report: CEO Workstation Meterpreter C2 and Advanced Credential Harvesting
+# Threat Hunt Report: CEO Administrative PC Breach via Meterpreter C2 and Advanced Credential Harvesting
 
 ## Executive Summary
 
