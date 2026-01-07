@@ -1,4 +1,4 @@
-# Threat Hunt Report: File Server Breach and Multi-Stage Exfiltration
+# Threat Hunt Report: CEO Workstation Meterpreter C2 and Advanced Credential Harvesting
 
 ## Executive Summary
 
