@@ -77,29 +77,31 @@ DeviceProcessEvents
 
 ---
 
-### 4. Discovery: Remote Share Enumeration
+### 4. Execution: Archive Extraction 
 
-Searched for evidence of remote network share enumeration and discovered that the attacker utilized the command "net view \\10.1.0.188" to enumerate shares on a remote system (i.e., IP 10.1.0.188), expanding the attacker's knowledge of available data repositories across the network.
+Searched for evidence of the extraction of the KB5044273-x64.7z archive and discovered that the attacker used the following command to extract the password-protected archive using 7-Zip with password bypass and automatic yes to prompts: "7z.exe" x C:\Windows\Temp\cache\KB5044273-x64.7z -p******** -oC:\Windows\Temp\cache\ -y.
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where FileName == "net.exe"
-| where ProcessCommandLine has "\\"
-| project TimeGenerated, ProcessCommandLine, FileName
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where InitiatingProcessRemoteSessionIP == "10.1.0.204"
+| where FileName in~ ("7z.exe", "7za.exe", "7zg.exe", "winrar.exe", "unzip.exe", "tar.exe")
+| project TimeGenerated, DeviceName, FileName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="1393" height="265" alt="CH_Q5" src="https://github.com/user-attachments/assets/6efb33b4-19f0-404d-86b9-71907c11c84b" />
+<img width="2569" height="953" alt="BT_Q6" src="https://github.com/user-attachments/assets/9745ff1f-e811-4def-b9dc-9856d960a0d5" />
 
 ---
 
-### 5. Discovery: Privilege Enumeration 
+### 5. Persistence: C2 Implant 
 
-Searched for evidence of privilege enumeration and discovered that the attacker utilized the command "whoami.exe" /all" which provides comprehensive details about the security context of the compromised system including user name, security identifier (SID), group memberships, and privileges, enabling the attacker to understand their current access level.
+Searched for evidence of... 
+
+privilege enumeration and discovered that the attacker utilized the command "whoami.exe" /all" which provides comprehensive details about the security context of the compromised system including user name, security identifier (SID), group memberships, and privileges, enabling the attacker to understand their current access level.
 
 **Query used to locate events:**
 
