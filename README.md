@@ -220,49 +220,48 @@ DeviceProcessEvents
 ---
 ### 11. Discovery: Password Database Search
 
-Searched for evidence of password database discovery and discovered that the attacker...
-
-archive creation and discovered that the attacker used tar (i.e., a cross-platform compression tool not native to legacy Windows environments) to compress the staged credentials. The attacker utilized the following command to compress the IT-Admin credentials folder into a portable .tar.gz format suitable for exfiltration: "tar.exe" -czf C:\Windows\Logs\CBS\credentials.tar.gz -C C:\Windows\Logs\CBS\it-admin.
+Searched for evidence of password database discovery and found that the attacker utilized the "cmd.exe" /c where /r C:\Users *.kdbx command to recursively search all user directories for KeePass password database files (.kdbx). This would have allowed the attacker to discover credential stores containing multi-system access credentials.
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where ProcessCommandLine has_any ("7z", "tar", "rar")
-| project TimeGenerated, DeviceName, ProcessCommandLine
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine has_any (".kdbx", ".kdb", ".wallet", ".psafe", "password", "credential")
+| project TimeGenerated, DeviceName, FileName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="2284" height="884" alt="CH_Q13" src="https://github.com/user-attachments/assets/275f8aa9-8da4-450c-bc71-e41f052f2c22" />
+<img width="2670" height="745" alt="BT_Q15" src="https://github.com/user-attachments/assets/4ddac127-523b-453a-a8b4-d12ce6d72a92" />
 
 ---
 
-### 12. Credential Access: Renamed Tool
+### 12. Discovery: Credential File
 
-Searched for evidence of executable file creation events in attacker-controlled directories in order to identify renamed credential dumping tools since this is a common OPSEC practice used for evading signature-based detection. This analysis revealed that the attacker renamed a credential dumping tool to a short, inconspicuous name (i.e., "pd.exe") that could blend in with program data or system processes.
+Searched for evidence of password file discovery and found that the attacker likely found the following password file: OLD-Passwords.txt. It was stored in plaintext on the CEO's desktop, representing a critical security failure and likely providing the attacker with immediate access to multiple systems.
 
 **Query used to locate events:**
 
 ```kql
 DeviceFileEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where DeviceName == "azuki-fileserver01"
-| where FileName endswith ".exe"
-| where FolderPath has "Windows\\Logs\\CBS"
-| where ActionType == "FileCreated"
-| project TimeGenerated, FileName, FolderPath, ActionType
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where FileName endswith ".txt"
+| where FileName contains "password" or FileName contains "pass" or FileName contains "cred"
+| project TimeGenerated, DeviceName, FileName, FolderPath, ActionType
 | order by TimeGenerated asc
 
 ```
-<img width="2203" height="283" alt="CH_Q14" src="https://github.com/user-attachments/assets/65c498e1-7125-4ff3-a2f7-ce552eab5d3f" />
+<img width="2658" height="673" alt="BT_Q16B" src="https://github.com/user-attachments/assets/8158f390-7ce1-4e72-afb7-2cb571aca849" />
 
 ---
 
-### 13. Credential Access: Memory Dump 
+### 13. Collection: Data Staging Directory 
 
-Searched for evidence of credential dumping activities and discovered that ProcDump (renamed to pd.exe) was used to dump LSASS process memory using the command: "pd.exe" -accepteula -ma 876 C:\Windows\Logs\CBS\lsass.dmp. LSASS memory contains credentials for logged-on users, enabling the attacker to extract plaintext and hashed passwords for privilege escalation and lateral movement.
+Searched for evidence of a data staging directory and discovered that...
+
+credential dumping activities and discovered that ProcDump (renamed to pd.exe) was used to dump LSASS process memory using the command: "pd.exe" -accepteula -ma 876 C:\Windows\Logs\CBS\lsass.dmp. LSASS memory contains credentials for logged-on users, enabling the attacker to extract plaintext and hashed passwords for privilege escalation and lateral movement.
 
 **Query used to locate events:**
 
