@@ -2,16 +2,16 @@
 
 ## Executive Summary
 
-Azuki Import & Export Trading Co. experienced continued malicious activity approximately 72 hours after the initial compromise that occurred between November 18-19, 2025. The attacker returned on November 21, 2025, conducted lateral movement to the organization's file server, and executed a sophisticated data exfiltration operation. The investigation revealed behavior consistent with ADE SPIDER (APT-SL44, SilentLynx), involving lateral movement using compromised credentials, extensive reconnaissance, credential theft via LSASS memory dumping, data staging and compression, exfiltration to cloud storage, establishment of persistence mechanisms, and anti-forensics activities. This investigation reconstructs the complete attack timeline and documents the threat actor's tactics, techniques, and procedures.
+Azuki Import & Export Trading Co. experienced continued malicious activity a few days after the file server breach that occurred between November 21-22, 2025. The attacker returned on November 25, 2025, and conducted lateral movement from a previously compromised workstation to the CEO's administrative PC (azuki-adminpc). The investigation revealed a multi-stage attack involving Meterpreter command-and-control implant deployment, persistent backdoor account creation, comprehensive credential theft from KeePass and Chrome browser databases, systematic data staging and compression, and exfiltration of eight archives totaling sensitive business data to gofile.io cloud storage. The threat actor demonstrated advanced operational security through renamed tools, masqueraded processes, and multiple persistence mechanisms. This investigation reconstructs the complete attack timeline and documents the threat actor's tactics, techniques, and procedures consistent with ADE SPIDER (APT-SL44, SilentLynx) operations.
 
 ## Background
-- **Incident Date:** November 21-22, 2025  
-- **Compromised Host:** azuki-fileserver01  
+- **Incident Date:** November 25, 2025  
+- **Compromised Host:** azuki-adminpc (CEO Administrative PC)  
 - **Threat Actor:** ADE SPIDER (APT-SL44, SilentLynx)  
 - **Motivation:** Financial  
 - **Target Profile:** Logistics and import/export companies, East Asia region  
 - **Typical Dwell Time:** 21-45 days  
-- **Attack Sophistication:** Moderate with preference for low-footprint techniques
+- **Attack Sophistication:** High, featuring Meterpreter C2, DPAPI credential theft, and multi-stage exfiltration
 
 ---
 
