@@ -461,25 +461,28 @@ The sophistication of this attack, including multiple persistence mechanisms, re
 
 | TTP ID | TTP Name | Description | Detection Relevance |
 |:--------:|:----------:|:-------------:|:---------------------:|
-| T1078 | Valid Accounts: Local Accounts | Compromised fileadmin account used for lateral movement to file server | Identifies authentication with compromised credentials from external sources |
-| T1021.001 | Remote Services: Remote Desktop Protocol | External RDP connection from 159.26.106.98 and lateral movement via mstsc.exe to 10.1.0.108 | Detects unauthorized external RDP connections and internal lateral movement |
-| T1135 | Network Share Discovery | net share and net view \\10.1.0.188 executed to enumerate local and remote shares | Indicates reconnaissance activity prior to data collection |
-| T1033 | System Owner/User Discovery | whoami /all executed to enumerate current user privileges and group memberships | Identifies privilege enumeration prior to credential theft |
-| T1016 | System Network Configuration Discovery | ipconfig /all executed to enumerate network adapter settings and domain information | Indicates comprehensive network reconnaissance activity |
-| T1564.001 | Hide Artifacts: Hidden Files and Directories | attrib +h +s applied to C:\Windows\Logs\CBS staging directory | Identifies attempts to conceal malicious artifacts through file attribute modification |
-| T1074.001 | Data Staged: Local Data Staging | C:\Windows\Logs\CBS used to consolidate collected data before exfiltration | Detects data staging in non-standard locations mimicking system directories |
-| T1105 | Ingress Tool Transfer | certutil.exe abused to download ex.ps1 from 78.141.196.6:8080 | Identifies LOLBin abuse for malware downloads |
-| T1119 | Automated Collection | xcopy executed with /E /I /H /Y flags to recursively copy IT-Admin file share | Detects bulk data collection with attribute preservation |
-| T1560.001 | Archive Collected Data: Archive via Utility | tar used to compress credentials.tar.gz with gzip compression | Identifies data compression prior to exfiltration using cross-platform tools |
-| T1036.005 | Masquerading: Match Legitimate Name or Location | pd.exe (ProcDump renamed) and svchost.ps1 (PowerShell script) used to evade detection | Detects renamed tools and masqueraded filenames mimicking legitimate Windows components |
-| T1003.001 | OS Credential Dumping: LSASS Memory | pd.exe (ProcDump) dumped LSASS process memory (PID 876) to lsass.dmp | Identifies credential theft from LSASS memory using legitimate administrative tools |
-| T1567.002 | Exfiltration Over Web Service: Exfiltration to Cloud Storage | curl uploaded credentials.tar.gz to file.io cloud storage | Detects data exfiltration to temporary file hosting services |
-| T1547.001 | Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder | FileShareSync registry value created in HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run | Detects registry-based persistence mechanisms with deceptive value names |
-| T1070.003 | Indicator Removal: Clear Command History | ConsoleHost_history.txt deleted to remove PowerShell command evidence | Identifies anti-forensics activities targeting command history files |
+| T1021.001 | Remote Services: Remote Desktop Protocol | Lateral movement from 10.1.0.204 to azuki-adminpc via RDP using compromised yuki.tanaka account | Detects unauthorized lateral movement and credential reuse from previously compromised systems |
+| T1078 | Valid Accounts: Local Accounts | Use of compromised yuki.tanaka credentials for authentication during lateral movement and privilege escalation | Identifies authentication with compromised credentials across multiple systems |
+| T1204.002 | User Execution: Malicious File | Execution of payload KB5044273-x64.7z masquerading as Windows update package | Detects masquerading through file naming and execution of suspicious archives |
+| T1573.001 | Encrypted Channel: Symmetric Cryptography | Meterpreter C2 communication via named pipe msf-pipe-5902 for command execution | Identifies Metasploit Framework indicators and named pipe C2 channels |
+| T1136.001 | Create Account: Local Account | Creation of backdoor account yuki.tanaka2 for persistent access | Detects suspicious account creation with naming patterns similar to legitimate users |
+| T1098 | Account Manipulation | Addition of yuki.tanaka2 to Administrators group via net localgroup command | Identifies privilege escalation through group membership modifications |
+| T1087.001 | Account Discovery: Local Account | Execution of query session to enumerate active RDP sessions | Detects reconnaissance of logged-in users and session information |
+| T1482 | Domain Trust Discovery | Execution of nltest /domain_trusts to map Active Directory trust relationships | Identifies reconnaissance of domain architecture and potential lateral movement paths |
+| T1049 | System Network Connections Discovery | Execution of netstat -ano to enumerate active TCP/IP connections and listening ports | Detects network reconnaissance and service discovery activities |
+| T1555.005 | Credentials from Password Stores: Password Managers | Discovery and theft of KeePass database Passwords.kdbx with plaintext master password | Identifies targeting of password manager databases and credential stores |
+| T1555.003 | Credentials from Password Stores: Credentials from Web Browsers | Mimikatz dpapi::chrome extraction of Chrome browser credentials via DPAPI | Detects credential dumping from browser databases using DPAPI decryption |
+| T1003.001 | OS Credential Dumping: LSASS Memory | Use of Mimikatz (m.exe) for credential extraction operations | Identifies renamed Mimikatz instances and credential dumping activities |
+| T1119 | Automated Collection | Robocopy execution with /E /R:1 /W:1 flags for systematic financial document collection | Detects bulk data collection with retry logic and attribute preservation |
+| T1074.001 | Data Staged: Local Data Staging | Use of C:\ProgramData\Microsoft\Crypto\staging directory for data consolidation | Identifies hidden staging directories masquerading as system folders |
+| T1560.001 | Archive Collected Data: Archive via Utility | Use of tar.exe to create 8 compressed archives of stolen data | Detects cross-platform compression tools and bulk archive creation |
+| T1567.002 | Exfiltration Over Web Service: Exfiltration to Cloud Storage | Curl POST uploads to gofile.io (45.112.123.227) for data exfiltration | Identifies file uploads to anonymous cloud storage services |
+| T1036.005 | Masquerading: Match Legitimate Name or Location | Payload named KB5044273-x64.7z to appear as Windows update; m.exe to hide Mimikatz | Detects file masquerading and renamed security tools |
+| T1027 | Obfuscated Files or Information | Use of 7z compression for payload delivery and staging directory name obfuscation | Identifies obfuscation techniques and suspicious archive formats |
 
 ---
 
-This table organizes the MITRE ATT&CK techniques (TTPs) observed during the investigation. The detection methods identified both the attack techniques and enabled confirmation of the threat actor's sophistication through multiple layers of defense evasion, persistence, and anti-forensics.
+This table organizes the MITRE ATT&CK techniques (TTPs) observed during the investigation. The detection methods identified both the attack techniques and enabled confirmation of the threat actor's sophistication through multiple layers of persistence, discovery, credential theft, collection, and exfiltration operations.
 
 ---
 
