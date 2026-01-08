@@ -181,46 +181,48 @@ DeviceProcessEvents
 
 ### 9. Discovery: Domain Trust Enumeration
 
-Searched for evidence of 
-
-credential file creation and discovered that the attacker created a credential file (i.e., IT-Admin-Passwords.csv)in the staging directory. This file contains exported credentials (e.g., IT administrator passwords), likely harvested from password managers, browser storage, or credential stores. The descriptive filename indicates the attacker organized their stolen data for easy identification during exfiltration.
-
-**Query used to locate events:**
-
-```kql
-DeviceFileEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where FolderPath has "CBS"
-| where FileName endswith ".csv"
-| project TimeGenerated, FileName, FolderPath, ActionType
-
-```
-<img width="2160" height="275" alt="CH_Q11" src="https://github.com/user-attachments/assets/5522277f-9363-41b3-a2a5-9e97016cc7ff" />
-
----
-
-### 10. Collection: Recursive Copy  
-
-Searched for evidence of bulk data collection activities and discovered that the attacker used xcopy to recursively copy entire file share directories to the staging location using the following command: xcopy C:\FileShares\IT-Admin C:\Windows\Logs\CBS\it-admin /E /I /H /Y. This command specifically targeted the IT-Admin share containing credential files and administrative documentation.
+Searched for evidence of domain trust enumeration and discovered that the attacker utilized the following command to enumerate all trust relationships in order to map lateral movement opportunities across domain boundaries: "nltest.exe" /domain_trusts /all_trusts. It's important to note that "nltest.exe" is a native Windows domain trust utility, "/domain_trusts" lists domain trust relationships, and "/all_trusts" shows all trust types (i.e., direct, forest, external, not just direct trusts). This allows the attacker to map out trust relationships between domains, potential lateral movement paths, and connected forests and external domains.
 
 **Query used to locate events:**
 
 ```kql
 DeviceProcessEvents
-| where DeviceName == "azuki-fileserver01"
-| where TimeGenerated between (datetime(2025-11-21) .. datetime(2025-11-25))
-| where ProcessCommandLine has_any ("robocopy", "xcopy")
-| project TimeGenerated, DeviceName, ProcessCommandLine
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where TimeGenerated >= datetime(2025-11-25)
+| where ProcessCommandLine has_any ("domain_trusts", "trusted_domains")
+| project TimeGenerated, DeviceName, FileName, ProcessCommandLine
 | order by TimeGenerated asc
 
 ```
-<img width="2175" height="669" alt="CH_Q12" src="https://github.com/user-attachments/assets/19c0aeca-93d0-44df-afde-b0b72eb9e728" />
+<img width="2120" height="368" alt="BT_Q13" src="https://github.com/user-attachments/assets/da28c365-23f0-4f98-8a11-54d0f43c3ade" />
 
 ---
-### 11. Collection: Compression
 
-Searched for evidence of archive creation and discovered that the attacker used tar (i.e., a cross-platform compression tool not native to legacy Windows environments) to compress the staged credentials. The attacker utilized the following command to compress the IT-Admin credentials folder into a portable .tar.gz format suitable for exfiltration: "tar.exe" -czf C:\Windows\Logs\CBS\credentials.tar.gz -C C:\Windows\Logs\CBS\it-admin.
+### 10. Discovery: Network Connection Enumeration  
+
+Searched for evidence of network connection enumeration and discovered that the attacker executed the netstat -ano command, showing all connections (-a), in numerical form (-n), with owning process IDs (-o) to identify active sessions and potential lateral movement targets. Therefore, the netstat -ano command provided the attacker with a complete view of active TCP/IP connections, listening ports, and associated process IDs, enabling identification of interesting services and remote systems.
+
+**Query used to locate events:**
+
+```kql
+DeviceProcessEvents
+| where TimeGenerated between (datetime(2025-11-23) .. datetime(2025-11-26))
+| where DeviceName == "azuki-adminpc"
+| where InitiatingProcessAccountName == "yuki.tanaka"
+| where FileName has_any ("netstat.exe", "net.exe") 
+| project TimeGenerated, DeviceName, FileName, ProcessCommandLine
+| order by TimeGenerated asc
+
+```
+<img width="2375" height="604" alt="BT_Q14" src="https://github.com/user-attachments/assets/6a9cd5c1-8075-4a8e-b5ae-18d87c0a5aa9" />
+
+---
+### 11. Discovery: Password Database Search
+
+Searched for evidence of password database discovery and discovered that the attacker...
+
+archive creation and discovered that the attacker used tar (i.e., a cross-platform compression tool not native to legacy Windows environments) to compress the staged credentials. The attacker utilized the following command to compress the IT-Admin credentials folder into a portable .tar.gz format suitable for exfiltration: "tar.exe" -czf C:\Windows\Logs\CBS\credentials.tar.gz -C C:\Windows\Logs\CBS\it-admin.
 
 **Query used to locate events:**
 
